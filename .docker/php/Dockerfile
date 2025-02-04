@@ -1,52 +1,52 @@
-# ベースイメージ（セキュリティアップデート済みの公式PHPイメージを利用）
-FROM php:8.3-cli-bookworm
+# ベースイメージ
+FROM php:8.2-cli
 
-# システムパッケージのインストール
+# システムの依存関係をインストール
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    git \
+    curl \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
     libonig-dev \
+    libxml2-dev \
     zip \
     unzip \
-    git \
     sqlite3 \
     libsqlite3-dev \
-    libzip-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# GD拡張のための設定
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+# GD拡張のインストール（設定オプションを変更）
+RUN docker-php-ext-configure gd \
+        --enable-gd \
+        --with-freetype \
+        --with-jpeg \
+    && docker-php-ext-install -j1 gd
 
-# PHP拡張モジュールのインストール
-RUN docker-php-ext-install pdo
-RUN docker-php-ext-install pdo_sqlite
-RUN docker-php-ext-install mbstring
+# 他の拡張機能を個別にインストール
 RUN docker-php-ext-install exif
 RUN docker-php-ext-install pcntl
 RUN docker-php-ext-install bcmath
-RUN docker-php-ext-install gd
-RUN docker-php-ext-install zip
 
-# Composerのインストール
+# Composerをインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 作業ディレクトリの作成
+# アプリケーションディレクトリを作成
 WORKDIR /var/www
 
-# プロジェクトのファイルをコピー
+# アプリケーションファイルをコピー
 COPY ./apps /var/www
 
-# Composer依存関係のインストール（プロダクション向けオプション）
-RUN /usr/bin/composer install --no-dev --optimize-autoloader
+# 依存関係をインストール
+RUN composer install
 
 # キャッシュなどのパーミッション調整
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage
 
-# ポート指定（必要に応じて変更）
+# ポート指定
 EXPOSE 8000
 
-# PHP Laravel Server の起動
+# アプリケーションを起動
 CMD ["php", "artisan", "serve", "--host", "0.0.0.0", "--port", "8000"]
