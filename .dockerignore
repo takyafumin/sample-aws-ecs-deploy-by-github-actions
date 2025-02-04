@@ -1,0 +1,29 @@
+# バージョン管理
+.git
+.gitignore
+.gitattributes
+
+# 開発環境
+.docker
+.aws
+.github
+run.sh
+
+# アプリケーション
+apps/.git
+apps/tests
+apps/storage/*.key
+apps/storage/*.log
+apps/storage/framework/cache/*
+apps/storage/framework/sessions/*
+apps/storage/framework/views/*
+apps/storage/logs/*
+apps/bootstrap/cache/*
+apps/node_modules
+apps/.phpunit.result.cache
+
+# その他
+*.md
+*.yml
+*.yaml
+.editorconfig

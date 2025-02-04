@@ -15,19 +15,27 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     libsqlite3-dev \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# GD拡張のインストール（設定オプションを変更）
-RUN docker-php-ext-configure gd \
+    && docker-php-ext-install exif pcntl bcmath \
+    # GD拡張のインストール（設定オプションを変更）
+    && docker-php-ext-configure gd \
         --enable-gd \
         --with-freetype \
         --with-jpeg \
-    && docker-php-ext-install -j1 gd
+    && docker-php-ext-install -j1 gd \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/src/* \
+    && rm -rf /tmp/*
 
-# 他の拡張機能を個別にインストール
-RUN docker-php-ext-install exif
-RUN docker-php-ext-install pcntl
-RUN docker-php-ext-install bcmath
+# PHPの設定を強化
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && sed -i \
+        -e 's/expose_php = On/expose_php = Off/' \
+        -e 's/display_errors = On/display_errors = Off/' \
+        -e 's/display_startup_errors = On/display_startup_errors = Off/' \
+        -e 's/log_errors = Off/log_errors = On/' \
+        -e 's/allow_url_fopen = On/allow_url_fopen = Off/' \
+        -e 's/allow_url_include = On/allow_url_include = Off/' \
+        "$PHP_INI_DIR/php.ini"
 
 # Composerをインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -38,12 +46,20 @@ WORKDIR /var/www
 # アプリケーションファイルをコピー
 COPY ./apps /var/www
 
-# 依存関係をインストール
-RUN composer install
+# 依存関係のインストールとセキュリティ設定
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN composer install \
+    && chown -R www-data:www-data /var/www \
+    && chmod -R 755 /var/www/storage \
+    && rm -rf /var/www/.git \
+    && rm -rf /var/www/tests \
+    && rm -f /var/www/*.md \
+    && rm -f /var/www/composer.* \
+    && find /var/www -type d -exec chmod 755 {} \; \
+    && find /var/www -type f -exec chmod 644 {} \;
 
-# キャッシュなどのパーミッション調整
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage
+# 非rootユーザーとして実行
+USER www-data
 
 # ポート指定
 EXPOSE 8000
