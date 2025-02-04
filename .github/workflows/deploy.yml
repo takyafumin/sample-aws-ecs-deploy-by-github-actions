@@ -1,0 +1,98 @@
+name: Deploy to AWS ECS
+
+# 手動実行を可能にする
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AWS_REGION: ap-northeast-1
+  AWS_CFN_STACK_NAME: laravel-network-stack
+  AWS_ECS_STACK_NAME: laravel-ecs-stack
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production  # 環境名を指定（記載しないとSecretを取得不可）
+
+    steps:
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v3
+
+      - name: AWS認証情報の設定
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ECRリポジトリ情報の取得
+        id: ecr-info
+        run: |
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name ${AWS_CFN_STACK_NAME} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ECRRepositoryUri`].OutputValue' \
+            --output text)
+          echo "repository_uri=${REPOSITORY_URI}" >> $GITHUB_OUTPUT
+
+      - name: ECRログイン
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Dockerイメージのビルドとプッシュ
+        env:
+          ECR_REPOSITORY_URI: ${{ steps.ecr-info.outputs.repository_uri }}
+        run: |
+          # イメージのビルド
+          docker build \
+            --platform linux/amd64 \
+            -t ${ECR_REPOSITORY_URI}:latest \
+            -f .docker/php/Dockerfile .
+
+          # ECRへのプッシュ
+          docker push ${ECR_REPOSITORY_URI}:latest
+
+      - name: ECSサービスの更新
+        run: |
+          # ECSスタックのデプロイ
+          aws cloudformation deploy \
+            --template-file .aws/ecs.yml \
+            --stack-name ${AWS_ECS_STACK_NAME} \
+            --capabilities CAPABILITY_NAMED_IAM
+
+      - name: デプロイ完了の確認
+        run: |
+          # サービスの安定化を待機
+          aws ecs wait services-stable \
+            --cluster laravel-ecs-cluster \
+            --services laravel-service
+
+      - name: エンドポイントの表示
+        run: |
+          # タスクのパブリックIPを取得
+          TASK_ARN=$(aws ecs list-tasks \
+            --cluster laravel-ecs-cluster \
+            --service-name laravel-service \
+            --query 'taskArns[0]' \
+            --output text)
+
+          ENI_ID=$(aws ecs describe-tasks \
+            --cluster laravel-ecs-cluster \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+            --output text)
+
+          PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+            --network-interface-ids $ENI_ID \
+            --query 'NetworkInterfaces[0].Association.PublicIp' \
+            --output text)
+
+          echo "アプリケーションエンドポイント: http://${PUBLIC_IP}:8000"
