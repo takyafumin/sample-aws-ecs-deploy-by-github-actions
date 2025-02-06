@@ -1,10 +1,11 @@
 # ベースイメージ
-FROM php:8.2-cli
+FROM php:latest
 
 # システムの依存関係をインストール
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    zlib1g-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
@@ -15,13 +16,7 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     libsqlite3-dev \
     build-essential \
-    && docker-php-ext-install exif pcntl bcmath \
-    # GD拡張のインストール（設定オプションを変更）
-    && docker-php-ext-configure gd \
-        --enable-gd \
-        --with-freetype \
-        --with-jpeg \
-    && docker-php-ext-install -j1 gd \
+    && docker-php-ext-install exif pcntl bcmath gd \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/src/* \
     && rm -rf /tmp/*
@@ -51,10 +46,10 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install \
     && chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
+    && chmod -R 755 /var/www/bootstrap/cache \
     && rm -rf /var/www/.git \
     && rm -rf /var/www/tests \
     && rm -f /var/www/*.md \
-    && rm -f /var/www/composer.* \
     && find /var/www -type d -exec chmod 755 {} \; \
     && find /var/www -type f -exec chmod 644 {} \;
 
@@ -64,5 +59,4 @@ USER www-data
 # ポート指定
 EXPOSE 8000
 
-# アプリケーションを起動
-CMD ["php", "artisan", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

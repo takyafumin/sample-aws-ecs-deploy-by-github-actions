@@ -47,6 +47,8 @@ case "$1" in
         echo "ネットワークリソースのデプロイが完了しました。"
         ;;
     "deploy:ecs")
+        CURRENT_TIME=$(date +%s)
+
         # スタックの状態を確認
         STACK_STATUS=$(check_stack_status ${AWS_ECS_STACK_NAME})
 
@@ -62,14 +64,15 @@ case "$1" in
         aws cloudformation deploy \
             --template-file ${AWS_CFN_TEMPLATE_PATH}/ecs.yml \
             --stack-name ${AWS_ECS_STACK_NAME} \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides DeployTime="${CURRENT_TIME}"
         RETURN_CODE=$?
         if [ $RETURN_CODE -ne 0 ]; then
             echo "ECSリソースのデプロイに失敗しました。"
             exit 1
         fi
 
-        # スタックの作成/更新完了を待機
+        # スタックの更新完了を待機
         wait_for_stack ${AWS_ECS_STACK_NAME}
 
         echo "ECSリソースのデプロイが完了しました。"
