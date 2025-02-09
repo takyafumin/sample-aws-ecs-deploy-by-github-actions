@@ -63,36 +63,6 @@ case "$1" in
             aws cloudformation wait stack-delete-complete --stack-name ${AWS_ECS_STACK_NAME}
         fi
 
-        # タスク定義のプレースホルダーを置換
-        echo "Replacing placeholders in task definition..."
-        ECR_REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name laravel-network-stack \
-            --query 'Stacks[0].Outputs[?ExportName==`laravel-network-stack-ECRRepositoryUri`].OutputValue' \
-            --output text)
-
-        sed -i '' \
-            -e "s|<ECR_REPOSITORY_URI>|${ECR_REPOSITORY_URI}|g" \
-            -e "s|<AWS_REGION>|${AWS_REGION}|g" \
-            ${AWS_ECS_TASK_DEFINITION_PATH}
-
-        # タスク定義の登録
-        echo "Registering task definition..."
-        aws ecs register-task-definition \
-            --cli-input-json file://${AWS_ECS_TASK_DEFINITION_PATH} \
-            --execution-role-arn $(aws iam get-role --role-name laravel-task-execution-role --query 'Role.Arn' --output text) \
-            --task-role-arn $(aws iam get-role --role-name laravel-task-role --query 'Role.Arn' --output text) \
-            --no-paginate \
-            --no-cli-pager
-        echo "Task definition registered."
-
-        # タスク定義のARNを取得
-        echo "Getting task definition ARN..."
-        TASK_DEFINITION_ARN=$(aws ecs describe-task-definition \
-            --task-definition laravel-task \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-        echo "Task definition ARN: ${TASK_DEFINITION_ARN}"
-
         # ECSスタックをデプロイ
         echo "Deploying ECS stack..."
         aws cloudformation deploy \
@@ -100,21 +70,16 @@ case "$1" in
             --stack-name ${AWS_ECS_STACK_NAME} \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
-            DeployTime="${CURRENT_TIME}" \
-            TaskDefinitionArn="${TASK_DEFINITION_ARN}"
+            DeployTime="${CURRENT_TIME}"
         RETURN_CODE=$?
         if [ $RETURN_CODE -ne 0 ]; then
             echo "ECSリソースのデプロイに失敗しました。"
             exit 1
         fi
-        echo "ECS stack deployed."
 
         # スタックの更新完了を待機
         echo "Waiting for stack update to complete..."
-        echo "Before wait_for_stack"
         wait_for_stack ${AWS_ECS_STACK_NAME}
-        echo "After wait_for_stack"
-        echo "Stack update complete."
 
         echo "ECSリソースのデプロイが完了しました。"
         ;;
