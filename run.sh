@@ -4,6 +4,7 @@ AWS_CFN_STACK_NAME="laravel-network-stack"
 AWS_ECS_STACK_NAME="laravel-ecs-stack"
 AWS_CFN_TEMPLATE_PATH=".aws"
 AWS_REGION="ap-northeast-1"
+AWS_ECS_TASK_DEFINITION_PATH="${AWS_CFN_TEMPLATE_PATH}/ecs-task-definition.json"
 
 # スタックの状態を確認する関数
 check_stack_status() {
@@ -50,22 +51,26 @@ case "$1" in
         CURRENT_TIME=$(date +%s)
 
         # スタックの状態を確認
+        echo "Checking stack status..."
         STACK_STATUS=$(check_stack_status ${AWS_ECS_STACK_NAME})
+        echo "Stack status: ${STACK_STATUS}"
 
         # ROLLBACK_COMPLETEの場合、スタックを削除
         if [ "${STACK_STATUS}" = "ROLLBACK_COMPLETE" ]; then
-            echo "ROLLBACK_COMPLETEのスタックを削除します..."
+            echo "Deleting ROLLBACK_COMPLETE stack..."
             aws cloudformation delete-stack --stack-name ${AWS_ECS_STACK_NAME}
-            echo "スタックの削除完了を待機中..."
+            echo "Waiting for stack deletion to complete..."
             aws cloudformation wait stack-delete-complete --stack-name ${AWS_ECS_STACK_NAME}
         fi
 
         # ECSスタックをデプロイ
+        echo "Deploying ECS stack..."
         aws cloudformation deploy \
             --template-file ${AWS_CFN_TEMPLATE_PATH}/ecs.yml \
             --stack-name ${AWS_ECS_STACK_NAME} \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides DeployTime="${CURRENT_TIME}"
+            --parameter-overrides \
+            DeployTime="${CURRENT_TIME}"
         RETURN_CODE=$?
         if [ $RETURN_CODE -ne 0 ]; then
             echo "ECSリソースのデプロイに失敗しました。"
@@ -73,6 +78,7 @@ case "$1" in
         fi
 
         # スタックの更新完了を待機
+        echo "Waiting for stack update to complete..."
         wait_for_stack ${AWS_ECS_STACK_NAME}
 
         echo "ECSリソースのデプロイが完了しました。"
