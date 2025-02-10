@@ -41,6 +41,11 @@ WORKDIR /var/www
 # アプリケーションファイルをコピー
 COPY ./apps /var/www
 
+# SQLiteの設定
+RUN mkdir -p /var/www/database \
+    && touch /var/www/database/database.sqlite \
+    && chmod 777 /var/www/database/database.sqlite
+
 # 依存関係のインストールとセキュリティ設定
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install \
