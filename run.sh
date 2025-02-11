@@ -30,14 +30,17 @@ get_logs() {
         exit 1
     fi
     TASK_ID=$1
-    LOG_GROUP="/ecs/laravel-app"  # CloudFormationテンプレートの設定と合わせる
+    LOG_GROUP="/ecs/laravel-app"
+
+    # ログストリーム名を構築
+    LOG_STREAM="ecs/laravel-app/${TASK_ID}"
 
     # ログの取得
     aws logs get-log-events \
         --log-group-name ${LOG_GROUP} \
-        --log-stream-name "ecs/${TASK_ID}" \  # テンプレートで定義されているプレフィックスを使用
-        --query 'events[*].message' \
-        --output text || echo "ログの取得に失敗しました。タスクIDを確認してください。"
+        --log-stream-name ${LOG_STREAM} \
+        --output text \
+        --query 'events[*].message' || echo "ログの取得に失敗しました。タスクIDを確認してください。"
 }
 
 # コマンドライン引数をチェック

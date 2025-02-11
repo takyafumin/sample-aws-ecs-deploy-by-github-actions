@@ -42,7 +42,7 @@ jobs:
             --overrides "{
               \"containerOverrides\": [{
                 \"name\": \"laravel-app\",
-                \"command\": [\"artisan\", \"${{ github.event.inputs.command }}\"]
+                \"command\": [\"php\", \"artisan\", \"${{ github.event.inputs.command }}\"]
               }]
             }")
 
