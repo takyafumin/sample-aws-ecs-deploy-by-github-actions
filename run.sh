@@ -154,30 +154,13 @@ case "$1" in
         echo "全てのスタックの削除が完了しました。"
         ;;
     "show:endpoint")
-        # ECSタスクのパブリックIPを取得
-        TASK_ARN=$(aws ecs list-tasks \
-            --cluster laravel-ecs-cluster \
-            --service-name laravel-service \
-            --query 'taskArns[0]' \
+        # ALBのDNS名を取得
+        ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name ${AWS_ECS_STACK_NAME} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ALBDnsName`].OutputValue' \
             --output text)
 
-        if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
-            echo "実行中のECSタスクが見つかりません。"
-            exit 1
-        fi
-
-        ENI_ID=$(aws ecs describe-tasks \
-            --cluster laravel-ecs-cluster \
-            --tasks $TASK_ARN \
-            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
-            --output text)
-
-        PUBLIC_IP=$(aws ec2 describe-network-interfaces \
-            --network-interface-ids $ENI_ID \
-            --query 'NetworkInterfaces[0].Association.PublicIp' \
-            --output text)
-
-        echo "アプリケーションエンドポイント: http://${PUBLIC_IP}:8000"
+        echo "アプリケーションエンドポイント: http://${ALB_DNS}"
         ;;
     "ssm")
         # Get the first task ARN
