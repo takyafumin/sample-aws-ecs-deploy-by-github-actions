@@ -28,11 +28,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - uses: actions/checkout@v3
+
       - name: Run ECS Task
         run: |
           TASK_DEF=$(aws ecs describe-task-definition --task-definition laravel-task --query 'taskDefinition.taskDefinitionArn' --output text)
 
-          aws ecs run-task \
+          TASK_INFO=$(aws ecs run-task \
             --cluster laravel-ecs-cluster \
             --task-definition $TASK_DEF \
             --launch-type FARGATE \
@@ -42,4 +44,13 @@ jobs:
                 \"name\": \"laravel-app\",
                 \"command\": [\"artisan\", \"${{ github.event.inputs.command }}\"]
               }]
-            }"
+            }")
+
+          TASK_ARN=$(echo $TASK_INFO | jq -r '.tasks[0].taskArn')
+          TASK_ID=$(echo $TASK_ARN | cut -d'/' -f3)
+          echo "TASK_ID=$TASK_ID" >> $GITHUB_ENV
+
+      - name: Wait and get logs
+        run: |
+          aws ecs wait tasks-stopped --cluster laravel-ecs-cluster --tasks ${{ env.TASK_ARN }}
+          ./run.sh logs ${{ env.TASK_ID }}
