@@ -61,6 +61,9 @@ RUN composer install \
 # 非rootユーザーとして実行
 USER www-data
 
+# マイグレーション
+RUN php artisan migrate --force
+
 # ポート指定
 EXPOSE 8000
 
