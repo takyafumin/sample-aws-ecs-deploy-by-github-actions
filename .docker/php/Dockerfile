@@ -62,7 +62,7 @@ RUN composer install \
 USER www-data
 
 # マイグレーション
-RUN php artisan migrate
+RUN php artisan migrate --force
 
 # ポート指定
 EXPOSE 8000
