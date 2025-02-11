@@ -175,6 +175,10 @@ case "$1" in
             --command "/bin/bash" \
             --interactive
         ;;
+    "logs")
+        shift
+        get_logs "$@"
+        ;;
     "help"|*)
         echo "使用方法: ./run.sh [command]"
         echo "利用可能なコマンド:"
@@ -185,5 +189,20 @@ case "$1" in
         echo "  delete:stacks  - 全てのスタックを削除します"
         echo "  show:endpoint  - アプリケーションのエンドポイントを表示します"
         echo "  ssm            - Connect to ECS container using SSM"
+        echo "  logs <task-id> - Show CloudWatch logs for the specified ECS task"
         ;;
 esac
+
+function get_logs() {
+    if [ -z "$1" ]; then
+        echo "Error: Task ID is required"
+        exit 1
+    fi
+    TASK_ID=$1
+
+    aws logs get-log-events \
+        --log-group-name /ecs/laravel-task \
+        --log-stream-name laravel-app/$TASK_ID \
+        --query 'events[*].message' \
+        --output text
+}
