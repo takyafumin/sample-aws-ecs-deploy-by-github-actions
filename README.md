@@ -116,3 +116,11 @@ graph TB
 # 5. アプリケーションのエンドポイントを確認
 ./run.sh show:endpoint
 ```
+
+## Tips
+
+### ECSコンテナへのSSM接続
+
+```bash
+./run.sh ssm
+```
