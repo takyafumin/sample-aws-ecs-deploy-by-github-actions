@@ -21,6 +21,7 @@ apps/storage/logs/*
 apps/bootstrap/cache/*
 apps/node_modules
 apps/.phpunit.result.cache
+apps/database/*.sqlite
 
 # その他
 *.md
