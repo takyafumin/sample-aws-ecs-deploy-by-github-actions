@@ -23,6 +23,26 @@ wait_for_stack() {
     aws cloudformation wait stack-update-complete --stack-name ${stack_name}
 }
 
+# CloudWatch Logsを取得する関数
+get_logs() {
+    if [ -z "$1" ]; then
+        echo "Error: Task ID is required"
+        exit 1
+    fi
+    TASK_ID=$1
+    LOG_GROUP="/ecs/laravel-app"
+
+    # ログストリーム名を構築
+    LOG_STREAM="ecs/laravel-app/${TASK_ID}"
+
+    # ログの取得
+    aws logs get-log-events \
+        --log-group-name ${LOG_GROUP} \
+        --log-stream-name ${LOG_STREAM} \
+        --output text \
+        --query 'events[*].message' || echo "ログの取得に失敗しました。タスクIDを確認してください。"
+}
+
 # コマンドライン引数をチェック
 case "$1" in
     "build")
@@ -192,17 +212,3 @@ case "$1" in
         echo "  logs <task-id> - Show CloudWatch logs for the specified ECS task"
         ;;
 esac
-
-function get_logs() {
-    if [ -z "$1" ]; then
-        echo "Error: Task ID is required"
-        exit 1
-    fi
-    TASK_ID=$1
-
-    aws logs get-log-events \
-        --log-group-name /ecs/laravel-task \
-        --log-stream-name laravel-app/$TASK_ID \
-        --query 'events[*].message' \
-        --output text
-}

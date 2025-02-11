@@ -42,15 +42,22 @@ jobs:
             --overrides "{
               \"containerOverrides\": [{
                 \"name\": \"laravel-app\",
-                \"command\": [\"artisan\", \"${{ github.event.inputs.command }}\"]
+                \"command\": [\"php\", \"artisan\", \"${{ github.event.inputs.command }}\"]
               }]
             }")
 
           TASK_ARN=$(echo $TASK_INFO | jq -r '.tasks[0].taskArn')
+          echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
           TASK_ID=$(echo $TASK_ARN | cut -d'/' -f3)
           echo "TASK_ID=$TASK_ID" >> $GITHUB_ENV
 
       - name: Wait and get logs
         run: |
-          aws ecs wait tasks-stopped --cluster laravel-ecs-cluster --tasks ${{ env.TASK_ARN }}
-          ./run.sh logs ${{ env.TASK_ID }}
+          # タスクARNが設定されていることを確認
+          echo "Waiting for task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster laravel-ecs-cluster --tasks $TASK_ARN
+          # タスクの最終ステータスを確認
+          TASK_STATUS=$(aws ecs describe-tasks --cluster laravel-ecs-cluster --tasks $TASK_ARN --query 'tasks[0].lastStatus' --output text)
+          echo "Task final status: $TASK_STATUS"
+          # ログを取得
+          ./run.sh logs $TASK_ID
