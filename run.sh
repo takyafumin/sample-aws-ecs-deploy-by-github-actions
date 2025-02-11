@@ -159,6 +159,22 @@ case "$1" in
 
         echo "アプリケーションエンドポイント: http://${PUBLIC_IP}:8000"
         ;;
+    "ssm")
+        # Get the first task ARN
+        TASK_ID=$(aws ecs list-tasks --cluster laravel-ecs-cluster --query 'taskArns[0]' --output text | awk -F'/' '{print $3}')
+        if [ -z "$TASK_ID" ]; then
+            echo "No running tasks found"
+            exit 1
+        fi
+
+        # Connect to the container
+        aws ecs execute-command \
+            --cluster laravel-ecs-cluster \
+            --task $TASK_ID \
+            --container laravel-app \
+            --command "/bin/bash" \
+            --interactive
+        ;;
     "help"|*)
         echo "使用方法: ./run.sh [command]"
         echo "利用可能なコマンド:"
@@ -168,5 +184,6 @@ case "$1" in
         echo "  push:ecr       - ECRにイメージをプッシュします"
         echo "  delete:stacks  - 全てのスタックを削除します"
         echo "  show:endpoint  - アプリケーションのエンドポイントを表示します"
+        echo "  ssm            - Connect to ECS container using SSM"
         ;;
 esac
